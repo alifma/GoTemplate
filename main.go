@@ -1,35 +1,64 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"html/template"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 )
 
 func main() {
-	http.HandleFunc("/", ActionIndex)
+	http.HandleFunc("/", handleIndex)
+	http.HandleFunc("/upload", handleUpload)
+	http.Handle("/static/",
+		http.StripPrefix("/static/",
+			http.FileServer(http.Dir("assets"))))
 
 	fmt.Println("server started at localhost:9000")
 	http.ListenAndServe(":9000", nil)
 }
-
-func ActionIndex(w http.ResponseWriter, r *http.Request) {
-	data := []struct {
-		Name string
-		Age  int
-	}{
-		{"Richard Grayson", 24},
-		{"Jason Todd", 23},
-		{"Tim Drake", 22},
-		{"Damian Wayne", 21},
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	tmpl := template.Must(template.ParseFiles("view.html"))
+	if err := tmpl.Execute(w, nil); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+	}
+}
+func handleUpload(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Only accept POST request", http.StatusBadRequest)
+		return
 	}
 
-	jsonInBytes, err := json.Marshal(data)
+	basePath, _ := os.Getwd()
+	reader, err := r.MultipartReader()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.Write(jsonInBytes)
+	for {
+		part, err := reader.NextPart()
+		if err == io.EOF {
+			break
+		}
+
+		fileLocation := filepath.Join(basePath, "files", part.FileName())
+		dst, err := os.Create(fileLocation)
+		if dst != nil {
+			defer dst.Close()
+		}
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		if _, err := io.Copy(dst, part); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.Write([]byte(`all files uploaded`))
 }

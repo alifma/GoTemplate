@@ -1,21 +1,44 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 
 <head>
-  <meta charset="UTF-8">
-  <meta http-equiv="X-UA-Compatible" content="IE=edge">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Input Message</title>
+  <title>Multiple Upload</title>
+  <script src="static/jquery-3.3.1.min.js"></script>
+  <script>
+    $(function () {
+      $("#user-form").on("submit", function (e) {
+        e.preventDefault();
+
+        var $self = $(this);
+        var files = $("#upload-file")[0].files;
+        var formData = new FormData();
+
+        for (var i = 0; i < files.length; i++) {
+          formData.append("files", files[i]);
+        }
+
+        $.ajax({
+          url: $self.attr("action"),
+          type: $self.attr("method"),
+          data: formData,
+          processData: false,
+          contentType: false,
+        }).then(function (res) {
+          alert(res);
+          $("#user-form").trigger("reset");
+        }).catch(function (a) {
+          alert("ERROR: " + a.responseText);
+        });
+      });
+    });
+  </script>
 </head>
 
 <body>
-  <form action="/process" method="POST" enctype="multipart/form-data">
-    <label for="">The File : </label>
-    <input type="file" name="file" required>
-    <br>
-    <label for="">Rename To : </label>
-    <input type="text" name="alias"> <br>
-    <button type="submit">Submit</button>
+  <form id="user-form" enctype="multipart/form-data" method="post" action="/upload"  >
+    <input required multiple id="upload-file" type="file" />
+    <br />
+    <button id="btn-upload" type="submit">Upload!</button>
   </form>
 </body>
 
